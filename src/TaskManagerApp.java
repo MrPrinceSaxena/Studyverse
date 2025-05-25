@@ -54,21 +54,25 @@ public class TaskManagerApp extends JFrame {
         JButton editBtn = new JButton("Edit Task");
         JButton delBtn = new JButton("Delete Task");
         JButton refreshBtn = new JButton("Refresh");
+        JButton pomodoroBtn = new JButton("Pomodoro");
 
         styleButton(addBtn, new Color(52, 152, 219));
         styleButton(editBtn, new Color(241, 196, 15));
         styleButton(delBtn, new Color(231, 76, 60));
         styleButton(refreshBtn, new Color(52, 73, 94));
+        styleButton(pomodoroBtn, new Color(39, 174, 96));
 
         addBtn.addActionListener(e -> onAddTask());
         editBtn.addActionListener(e -> onEditTask());
         delBtn.addActionListener(e -> onDeleteTask());
         refreshBtn.addActionListener(e -> loadTasks());
+        pomodoroBtn.addActionListener(e -> onPomodoro());
 
         btnPanel.add(addBtn);
         btnPanel.add(editBtn);
         btnPanel.add(delBtn);
         btnPanel.add(refreshBtn);
+        btnPanel.add(pomodoroBtn);
 
         add(btnPanel, BorderLayout.SOUTH);
     }
@@ -160,6 +164,25 @@ public class TaskManagerApp extends JFrame {
                 JOptionPane.showMessageDialog(this, "Failed to delete task: " + e.getMessage());
             }
         }
+    }
+
+    private void onPomodoro() {
+        int selectedRow = table.getSelectedRow();
+        Runnable completeTask = null;
+        if (selectedRow >= 0) {
+            completeTask = () -> {
+                Task selected = tableModel.getTaskAt(selectedRow);
+                selected.setStatus("Completed");
+                try {
+                    dbManager.updateTask(selected);
+                    loadTasks();
+                } catch (SQLException ex) {
+                    JOptionPane.showMessageDialog(this, "Failed to mark task completed: " + ex.getMessage());
+                }
+            };
+        }
+        PomodoroTimerDialog dlg = new PomodoroTimerDialog(this, completeTask);
+        dlg.setVisible(true);
     }
 
     public static void main(String[] args) {
