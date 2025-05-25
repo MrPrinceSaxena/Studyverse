@@ -8,7 +8,7 @@ public class DatabaseManager {
     // If you want to use a .env file, see below.
     private static final String DB_URL = "jdbc:mysql://localhost:3306/taskmanager";
     private static final String DB_USER = "root"; // Change as needed
-    private static final String DB_PASS = "Prince@285";     // Change as needed
+    private static final String DB_PASS = "YOUR_PWD";     // Change as needed
 
     private Connection conn;
 
