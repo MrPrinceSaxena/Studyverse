@@ -1,9 +1,8 @@
 import javax.swing.table.AbstractTableModel;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 public class TaskTableModel extends AbstractTableModel {
-    private final String[] columns = {"ID", "Title", "Description", "Due Date", "Status"};
+    private final String[] columns = {"Title", "Description", "Due Date", "Status", "Priority", "Category", "Recurrence", "Notes"};
     private List<Task> tasks;
 
     public TaskTableModel(List<Task> tasks) {
@@ -38,11 +37,14 @@ public class TaskTableModel extends AbstractTableModel {
     public Object getValueAt(int row, int col) {
         Task t = tasks.get(row);
         switch (col) {
-            case 0: return t.getId();
-            case 1: return t.getTitle();
-            case 2: return t.getDescription();
-            case 3: return t.getDueDate() != null ? t.getDueDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")) : "";
-            case 4: return t.getStatus();
+            case 0: return t.getTitle();
+            case 1: return t.getDescription();
+            case 2: return t.getDueDate();
+            case 3: return t.getStatus();
+            case 4: return t.getPriority();
+            case 5: return t.getCategory();
+            case 6: return t.getRecurrence();
+            case 7: return t.getNotes();
             default: return "";
         }
     }

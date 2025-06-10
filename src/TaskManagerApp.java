@@ -1,193 +1,177 @@
 import javax.swing.*;
-import javax.swing.border.EmptyBorder;
 import java.awt.*;
-import java.awt.event.*;
-import java.sql.SQLException;
-import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 public class TaskManagerApp extends JFrame {
-    private DatabaseManager dbManager;
     private TaskTableModel tableModel;
-    private JTable table;
+    private JTable taskTable;
+    private List<Category> categories;
+    private JComboBox<String> filterStatusBox;
+    private JComboBox<String> filterPriorityBox;
+    private JComboBox<String> filterCategoryBox;
 
     public TaskManagerApp() {
-        setTitle("Study Task Manager");
-        setSize(800, 500);
-        setDefaultCloseOperation(EXIT_ON_CLOSE);
+        setTitle("StudyVerse - Task Manager");
+        setSize(1050, 600);
         setLocationRelativeTo(null);
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
 
-        try {
-            dbManager = new DatabaseManager();
-        } catch (SQLException e) {
-            JOptionPane.showMessageDialog(this, "Database connection failed: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-            System.exit(1);
-        }
+        reloadCategories();
+        List<Task> tasks = DatabaseManager.getTasks();
+        tableModel = new TaskTableModel(tasks);
 
-        initUI();
-        loadTasks();
-    }
+        taskTable = new JTable(tableModel);
 
-    private void initUI() {
-        setLayout(new BorderLayout(10, 10));
-        JPanel topPanel = new JPanel(new BorderLayout());
-        JLabel heading = new JLabel("Study Planner - Task Manager", SwingConstants.CENTER);
-        heading.setFont(new Font("Segoe UI", Font.BOLD, 26));
-        heading.setForeground(new Color(52, 73, 94));
-        heading.setBorder(new EmptyBorder(20, 0, 20, 0));
-        topPanel.add(heading, BorderLayout.CENTER);
-        topPanel.setBackground(new Color(236, 240, 241));
-        add(topPanel, BorderLayout.NORTH);
-
-        tableModel = new TaskTableModel(List.of());
-        table = new JTable(tableModel);
-        table.setRowHeight(28);
-        table.setFont(new Font("Segoe UI", Font.PLAIN, 16));
-        table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 16));
-        JScrollPane scrollPane = new JScrollPane(table);
+        JScrollPane scrollPane = new JScrollPane(taskTable);
         add(scrollPane, BorderLayout.CENTER);
 
+        JPanel filterPanel = new JPanel();
+        filterPanel.add(new JLabel("Status:"));
+        filterStatusBox = new JComboBox<>(new String[]{"All", "Pending", "Completed"});
+        filterPanel.add(filterStatusBox);
+
+        filterPanel.add(new JLabel("Priority:"));
+        filterPriorityBox = new JComboBox<>(new String[]{"All", "High", "Medium", "Low"});
+        filterPanel.add(filterPriorityBox);
+
+        filterPanel.add(new JLabel("Category:"));
+        ArrayList<String> catNames = new ArrayList<>();
+        catNames.add("All");
+        for (Category c : categories) catNames.add(c.getName());
+        filterCategoryBox = new JComboBox<>(catNames.toArray(new String[0]));
+        filterPanel.add(filterCategoryBox);
+
+        JButton btnFilter = new JButton("Filter");
+        btnFilter.addActionListener(e -> applyFilters());
+        filterPanel.add(btnFilter);
+
+        JButton btnAdd = new JButton("Add Task");
+        JButton btnEdit = new JButton("Edit Task");
+        JButton btnDelete = new JButton("Delete Task");
+        JButton btnMark = new JButton("Toggle Complete");
+        JButton btnAddCat = new JButton("Add Category");
+
         JPanel btnPanel = new JPanel();
-        btnPanel.setBackground(new Color(236, 240, 241));
+        btnPanel.add(btnAdd); btnPanel.add(btnEdit); btnPanel.add(btnDelete); btnPanel.add(btnMark); btnPanel.add(btnAddCat);
 
-        JButton addBtn = new JButton("Add Task");
-        JButton editBtn = new JButton("Edit Task");
-        JButton delBtn = new JButton("Delete Task");
-        JButton refreshBtn = new JButton("Refresh");
-        JButton pomodoroBtn = new JButton("Pomodoro");
-
-        styleButton(addBtn, new Color(52, 152, 219));
-        styleButton(editBtn, new Color(241, 196, 15));
-        styleButton(delBtn, new Color(231, 76, 60));
-        styleButton(refreshBtn, new Color(52, 73, 94));
-        styleButton(pomodoroBtn, new Color(39, 174, 96));
-
-        addBtn.addActionListener(e -> onAddTask());
-        editBtn.addActionListener(e -> onEditTask());
-        delBtn.addActionListener(e -> onDeleteTask());
-        refreshBtn.addActionListener(e -> loadTasks());
-        pomodoroBtn.addActionListener(e -> onPomodoro());
-
-        btnPanel.add(addBtn);
-        btnPanel.add(editBtn);
-        btnPanel.add(delBtn);
-        btnPanel.add(refreshBtn);
-        btnPanel.add(pomodoroBtn);
-
+        add(filterPanel, BorderLayout.NORTH);
         add(btnPanel, BorderLayout.SOUTH);
+
+        btnAdd.addActionListener(e -> onAddTask());
+        btnEdit.addActionListener(e -> onEditTask());
+        btnDelete.addActionListener(e -> onDeleteTask());
+        btnMark.addActionListener(e -> onToggleStatus());
+        btnAddCat.addActionListener(e -> onAddCategory());
+
+        // Overdue highlighting
+        taskTable.setDefaultRenderer(Object.class, new TaskTableCellRenderer(tableModel));
+
+        setVisible(true);
     }
 
-    private void styleButton(JButton btn, Color color) {
-        btn.setBackground(color);
-        btn.setForeground(Color.WHITE);
-        btn.setFont(new Font("Segoe UI", Font.BOLD, 15));
-        btn.setFocusPainted(false);
-        btn.setBorder(BorderFactory.createEmptyBorder(8, 18, 8, 18));
-    }
-
-    private void loadTasks() {
-        try {
-            List<Task> tasks = dbManager.getTasks();
-            tableModel.setTasks(tasks);
-        } catch (SQLException e) {
-            JOptionPane.showMessageDialog(this, "Cannot load tasks: " + e.getMessage());
+    private void reloadCategories() {
+        categories = DatabaseManager.getCategories();
+        if (filterCategoryBox != null) {
+            filterCategoryBox.removeAllItems();
+            filterCategoryBox.addItem("All");
+            for (Category c : categories) filterCategoryBox.addItem(c.getName());
         }
+    }
+
+    private void refreshTasks() {
+        tableModel.setTasks(DatabaseManager.getTasks());
     }
 
     private void onAddTask() {
-        TaskDialog dialog = new TaskDialog(this, "Add Task", null);
+        TaskDialog dialog = new TaskDialog(this, categories, null);
         dialog.setVisible(true);
         if (dialog.isConfirmed()) {
-            String title = dialog.getTaskTitle();
-            String desc = dialog.getTaskDescription();
-            LocalDate due = dialog.getTaskDueDate();
-            String status = dialog.getTaskStatus();
-
-            if (title.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Task title is required.", "Validation", JOptionPane.WARNING_MESSAGE);
-                return;
+            Task t = dialog.getTask();
+            // If category is new, add it
+            if (t.getCategory() != null && DatabaseManager.getCategoryIdByName(t.getCategory()) == null) {
+                DatabaseManager.addCategory(t.getCategory());
+                reloadCategories();
             }
-            try {
-                dbManager.addTask(new Task(title, desc, due, status));
-                loadTasks();
-            } catch (SQLException e) {
-                JOptionPane.showMessageDialog(this, "Failed to add task: " + e.getMessage());
-            }
+            DatabaseManager.addTask(t);
+            refreshTasks();
         }
     }
 
     private void onEditTask() {
-        int row = table.getSelectedRow();
-        if (row < 0) {
-            JOptionPane.showMessageDialog(this, "Select a task to edit.");
+        int row = taskTable.getSelectedRow();
+        if (row == -1) {
+            JOptionPane.showMessageDialog(this, "Select a task to edit.", "No selection", JOptionPane.WARNING_MESSAGE);
             return;
         }
-        Task selected = tableModel.getTaskAt(row);
-        TaskDialog dialog = new TaskDialog(this, "Edit Task", selected);
+        Task t = tableModel.getTaskAt(row);
+        TaskDialog dialog = new TaskDialog(this, categories, t);
         dialog.setVisible(true);
         if (dialog.isConfirmed()) {
-            String title = dialog.getTaskTitle();
-            String desc = dialog.getTaskDescription();
-            LocalDate due = dialog.getTaskDueDate();
-            String status = dialog.getTaskStatus();
-
-            if (title.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Task title is required.", "Validation", JOptionPane.WARNING_MESSAGE);
-                return;
+            Task newTask = dialog.getTask();
+            newTask.setId(t.getId());
+            // If category is new, add it
+            if (newTask.getCategory() != null && DatabaseManager.getCategoryIdByName(newTask.getCategory()) == null) {
+                DatabaseManager.addCategory(newTask.getCategory());
+                reloadCategories();
             }
-            selected.setTitle(title);
-            selected.setDescription(desc);
-            selected.setDueDate(due);
-            selected.setStatus(status);
-            try {
-                dbManager.updateTask(selected);
-                loadTasks();
-            } catch (SQLException e) {
-                JOptionPane.showMessageDialog(this, "Failed to update task: " + e.getMessage());
-            }
+            DatabaseManager.updateTask(newTask);
+            refreshTasks();
         }
     }
 
     private void onDeleteTask() {
-        int row = table.getSelectedRow();
-        if (row < 0) {
-            JOptionPane.showMessageDialog(this, "Select a task to delete.");
+        int row = taskTable.getSelectedRow();
+        if (row == -1) {
+            JOptionPane.showMessageDialog(this, "Select a task to delete.", "No selection", JOptionPane.WARNING_MESSAGE);
             return;
         }
-        Task selected = tableModel.getTaskAt(row);
+        Task t = tableModel.getTaskAt(row);
         int confirm = JOptionPane.showConfirmDialog(this, "Delete selected task?", "Confirm", JOptionPane.YES_NO_OPTION);
         if (confirm == JOptionPane.YES_OPTION) {
-            try {
-                dbManager.deleteTask(selected.getId());
-                loadTasks();
-            } catch (SQLException e) {
-                JOptionPane.showMessageDialog(this, "Failed to delete task: " + e.getMessage());
-            }
+            DatabaseManager.deleteTask(t.getId());
+            refreshTasks();
         }
     }
 
-    private void onPomodoro() {
-        int selectedRow = table.getSelectedRow();
-        Runnable completeTask = null;
-        if (selectedRow >= 0) {
-            completeTask = () -> {
-                Task selected = tableModel.getTaskAt(selectedRow);
-                selected.setStatus("Completed");
-                try {
-                    dbManager.updateTask(selected);
-                    loadTasks();
-                } catch (SQLException ex) {
-                    JOptionPane.showMessageDialog(this, "Failed to mark task completed: " + ex.getMessage());
-                }
-            };
+    private void onToggleStatus() {
+        int row = taskTable.getSelectedRow();
+        if (row == -1) {
+            JOptionPane.showMessageDialog(this, "Select a task to toggle status.", "No selection", JOptionPane.WARNING_MESSAGE);
+            return;
         }
-        PomodoroTimerDialog dlg = new PomodoroTimerDialog(this, completeTask);
-        dlg.setVisible(true);
+        Task t = tableModel.getTaskAt(row);
+        t.setStatus(t.getStatus().equals("Completed") ? "Pending" : "Completed");
+        DatabaseManager.updateTask(t);
+        refreshTasks();
+    }
+
+    private void onAddCategory() {
+        String name = JOptionPane.showInputDialog(this, "Category name:");
+        if (name != null && !name.trim().isEmpty()) {
+            DatabaseManager.addCategory(name.trim());
+            reloadCategories();
+        }
+    }
+
+    private void applyFilters() {
+        String status = filterStatusBox.getSelectedItem().toString();
+        String priority = filterPriorityBox.getSelectedItem().toString();
+        String category = filterCategoryBox.getSelectedItem().toString();
+        List<Task> filtered = new ArrayList<>();
+        for (Task t : DatabaseManager.getTasks()) {
+            boolean ok = true;
+            if (!status.equals("All") && !t.getStatus().equals(status)) ok = false;
+            if (!priority.equals("All") && !t.getPriority().equals(priority)) ok = false;
+            if (!category.equals("All") && (t.getCategory() == null || !t.getCategory().equals(category))) ok = false;
+            if (ok) filtered.add(t);
+        }
+        tableModel.setTasks(filtered);
     }
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            new TaskManagerApp().setVisible(true);
-        });
+        // Set a modern look and feel
+        try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); } catch (Exception ignored) {}
+        SwingUtilities.invokeLater(TaskManagerApp::new);
     }
 }
