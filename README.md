@@ -12,6 +12,7 @@ A GUI-based task manager application built with Java Swing and MySQL. Easily add
 - **Modern GUI** with Java Swing
 - **Customizable table** with sorting
 - **Responsive layout** and visual appeal
+  
 
 ---
 
