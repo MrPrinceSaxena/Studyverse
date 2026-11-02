@@ -6,6 +6,7 @@ A GUI-based task manager application built with Java Swing and MySQL. Easily add
 
 ## Features
 
+
 - **Add, edit, delete tasks** (with title, description, due date, status)
 - **Persistent storage** using MySQL database
 - **Modern GUI** with Java Swing
